@@ -16,6 +16,7 @@ function tokenize(equ)
     if (/\d/.test(ch))
     {
       num += ch
+      prev = "number"
       continue
     }
 
@@ -26,6 +27,7 @@ function tokenize(equ)
 
       num += ch
       hasDot = true
+      prev = "number"
       continue
     }
 
@@ -34,17 +36,16 @@ function tokenize(equ)
       arr.push(Number(num))
       num = ""
       hasDot = false
-      prev = "number"
     }
 
     if ("+-*/()".includes(ch))
     {
-      if (ch === "-" && (prev === null || "+-*/(".includes(prev)))
+      if (ch === "-" && (prev === null || prev === "op" || prev === "("))
         arr.push("NEG")
       else
         arr.push(ch)
 
-      prev = ch
+      prev = ch === "(" ? "(" : "op"
     }
     else
       throw new Error("bad char: " + ch)
@@ -80,8 +81,11 @@ function sh_yard(equ)
     {
       while (
         stack.length &&
-        ("+-*/".includes(stack.at(-1)) || stack.at(-1) === "NEG") &&
-        prec[stack.at(-1)] >= prec[tok]
+        (stack.at(-1) in prec) &&
+        (
+          prec[stack.at(-1)] > prec[tok] ||
+          (prec[stack.at(-1)] === prec[tok] && tok !== "NEG")
+        )
       )
         out.push(stack.pop())
 
@@ -93,15 +97,23 @@ function sh_yard(equ)
 
     else if (tok === ")")
     {
-      while (stack.at(-1) !== "(")
+      while (stack.length && stack.at(-1) !== "(")
         out.push(stack.pop())
+
+      if (!stack.length)
+        throw new Error("mismatched parens")
 
       stack.pop()
     }
   }
 
   while (stack.length)
+  {
+    if (stack.at(-1) === "(")
+      throw new Error("mismatched parens")
+
     out.push(stack.pop())
+  }
 
   return out
 }
